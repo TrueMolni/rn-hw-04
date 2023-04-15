@@ -2,7 +2,6 @@ import React from "react";
 import { Button } from "react-native";
 
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
-// import { Ionicons } from "@expo/vector-icons";
 
 import PostsScreen from "./PostsScreen";
 import CreatePostsScreen from "./CreatePostsScreen";
@@ -39,13 +38,5 @@ const HomeScreen = ({ navigation }) => {
     </Tabs.Navigator>
   );
 };
-
-// const styles = StyleSheet.create({
-//   container: {
-//     flex: 1,
-//     alignItems: "center",
-//     justifyContent: "center",
-//   },
-// });
 
 export default HomeScreen;
