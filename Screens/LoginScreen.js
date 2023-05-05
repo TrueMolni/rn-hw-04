@@ -12,9 +12,13 @@ import {
   TouchableWithoutFeedback,
 } from "react-native";
 
+import { useDispatch } from "react-redux";
+
+import { authSignInUser } from "../redux/auth/authOperations";
+
 const initialState = {
-  login: "",
   email: "",
+  password: "",
 };
 
 export default LoginScreen = ({ navigation }) => {
@@ -22,6 +26,9 @@ export default LoginScreen = ({ navigation }) => {
   const [isShowKeyboard, setIsShowKeyboard] = useState(false);
   const [focusedEmail, setFocusedEmail] = useState(false);
   const [focusedPassword, setFocusedPassword] = useState(false);
+  const [isSecureEntry, setIsSecureEntry] = useState(true);
+
+  const dispatch = useDispatch();
 
   const keyboardHide = () => {
     setIsShowKeyboard(false);
@@ -32,6 +39,7 @@ export default LoginScreen = ({ navigation }) => {
     setIsShowKeyboard(false);
     Keyboard.dismiss();
     console.log(state);
+    dispatch(authSignInUser(state));
     setState(initialState);
   };
 
@@ -59,6 +67,7 @@ export default LoginScreen = ({ navigation }) => {
                     ...styles.input,
                     borderColor: focusedEmail ? "#FF6C00" : "#E8E8E8",
                   }}
+                  keyboardType="email-address"
                   placeholder="Адреса електронної пошти"
                   value={state.email}
                   onFocus={() => {
@@ -89,14 +98,22 @@ export default LoginScreen = ({ navigation }) => {
                     setState((prevState) => ({ ...prevState, password: value }))
                   }
                 />
-                <Text style={styles.passwordText}>Показати</Text>
+                <TouchableOpacity
+                  style={styles.passwordTextWrapper}
+                  onPress={() => {
+                    setIsSecureEntry((prevState) => !prevState);
+                  }}
+                >
+                  <Text style={styles.passwordText}>
+                    {isSecureEntry ? "Показати" : "Приховати"}
+                  </Text>
+                </TouchableOpacity>
               </View>
               <TouchableOpacity
                 activeOpacity={0.7}
                 style={styles.btn}
                 onPress={() => {
                   handleSubmit();
-                  navigation.navigate("Home");
                 }}
               >
                 <Text style={styles.btnTitle}>Увійти</Text>
@@ -150,10 +167,12 @@ const styles = StyleSheet.create({
     fontSize: 16,
     padding: 16,
   },
-  passwordText: {
+  passwordTextWrapper: {
     position: "absolute",
     top: "30%",
-    left: "75%",
+    right: 25,
+  },
+  passwordText: {
     color: "#1B4371",
     fontSize: 16,
     lineHeight: 19,
