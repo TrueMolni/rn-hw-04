@@ -2,7 +2,7 @@ import { createStackNavigator } from "@react-navigation/stack";
 
 import HomeTabs from "../Screens/Home";
 import MapScreen from "../Screens/MapScreen";
-import CommentsScreen from "../Screens/CommentsScreen";
+import CommentsScreen from "../Screens/CommentScreen";
 
 const MainStack = createStackNavigator();
 
