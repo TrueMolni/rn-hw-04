@@ -67,7 +67,8 @@ const HomeTabs = ({ navigation }) => {
       />
       <Tabs.Screen
         options={{
-          title: "Профіль",
+          headerShown: false,
+
           tabBarIcon: ({ color, size }) => (
             <SvgProfile color={color} size={size} />
           ),
@@ -79,5 +80,13 @@ const HomeTabs = ({ navigation }) => {
     </Tabs.Navigator>
   );
 };
+
+// const styles = StyleSheet.create({
+//   container: {
+//     flex: 1,
+//     alignItems: "center",
+//     justifyContent: "center",
+//   },
+// });
 
 export default HomeTabs;

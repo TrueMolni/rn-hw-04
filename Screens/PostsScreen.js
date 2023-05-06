@@ -7,6 +7,7 @@ import {
   FlatList,
   Image,
   TouchableOpacity,
+  ActivityIndicator,
 } from "react-native";
 import {
   collection,
@@ -24,8 +25,10 @@ import SvgMap from "../assets/svg/mapIcon";
 
 export default PostsScreen = ({ navigation }) => {
   const [posts, setPosts] = useState([]);
+  const [loading, setLoading] = useState(false);
 
   const getAllPosts = async () => {
+    setLoading(true);
     try {
       const postsRef = await collection(db, "posts");
       const q = query(postsRef, orderBy("createdAt", "desc"));
@@ -45,6 +48,7 @@ export default PostsScreen = ({ navigation }) => {
           id: post.id,
           ...post.data(),
           commentsCount,
+
           nickname: userSnap.data().nickname,
           email: userSnap.data().email,
           photoUser: userSnap.data().photoURL,
@@ -52,7 +56,9 @@ export default PostsScreen = ({ navigation }) => {
       }
 
       setPosts(posts);
+      setLoading(false);
     } catch (error) {
+      setLoading(false);
       console.log("Error", error);
     }
   };
@@ -63,41 +69,56 @@ export default PostsScreen = ({ navigation }) => {
 
   return (
     <View style={styles.container}>
+      {loading && (
+        <View style={styles.activityIndicatorContainer}>
+          <ActivityIndicator size="large" color="#FF6C00" />
+        </View>
+      )}
       <FlatList
         data={posts}
         keyExtractor={(item) => item.id}
         renderItem={({ item }) => (
           <View style={styles.postsContainer}>
             <View style={styles.userContainer}>
-              <Image
-                source={{ uri: item.photoUser }}
-                style={styles.photoUser}
-              />
+              {item.photoUser ? (
+                <Image
+                  source={{ uri: item.photoUser }}
+                  style={styles.photoUser}
+                />
+              ) : (
+                <View style={styles.avatar}>
+                  <Text style={styles.avatarText}>
+                    {item.nickname.split("")[0]}
+                  </Text>
+                </View>
+              )}
               <View style={styles.infoUser}>
                 <Text style={styles.loginUser}>{item.nickname}</Text>
                 <Text style={styles.emailUser}>{item.email}</Text>
               </View>
             </View>
             <Image style={styles.photo} source={{ uri: item.photo }} />
-            <Text style={styles.photoName}>{item.photoName}</Text>
+            <Text style={styles.photoName}>{item.description}</Text>
             <View style={styles.details}>
               <TouchableOpacity
                 style={{ ...styles.detailsBlock, alignItems: "center" }}
-                onPress={(navigation.navigate("Comments"), { postId: item.id })}
+                onPress={() => {
+                  navigation.navigate("Comments", { postId: item.id });
+                }}
               >
                 <SvgMessage />
-                <Text styles={{ marginLeft: 5 }}>0</Text>
+                <Text styles={{ marginLeft: 5 }}>{item.commentsCount}</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={styles.detailsBlock}
                 onPress={() => {
                   const location = item.location;
-                  const photoName = item.photoName;
+                  const photoName = item.description;
                   navigation.navigate("Map", { location, photoName });
                 }}
               >
                 <SvgMap />
-                <Text style={styles.location}>{item.photoLocation}</Text>
+                <Text style={styles.location}>{item.place}</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -112,27 +133,53 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: "#ecf0f1",
   },
-
+  activityIndicatorContainer: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(255, 255, 255, 0.7)",
+    zIndex: 9,
+  },
   postsContainer: {
     marginHorizontal: 16,
     marginBottom: 24,
   },
   userContainer: {
-    backgroundColor: "#000",
-    padding: 10,
+    flexDirection: "row",
+    marginBottom: 10,
+    marginTop: 10,
   },
   photoUser: {
+    backgroundColor: "#fff",
+    borderRadius: 5,
     width: 50,
     height: 50,
+    marginRight: 10,
   },
-  infoUser: {
-    color: "#ff0000",
+  avatar: {
+    width: 50,
+    height: 50,
+    borderRadius: 5,
+    backgroundColor: "#FF6C00",
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: 10,
+  },
+  avatarText: {
+    color: "#fff",
+    fontSize: 24,
+    fontWeight: "bold",
   },
   loginUser: {
-    color: "#ff0000",
+    color: "#000",
+    fontSize: 18,
   },
   emailUser: {
-    color: "#ff0000",
+    color: "#212121",
   },
   photo: {
     width: "100%",

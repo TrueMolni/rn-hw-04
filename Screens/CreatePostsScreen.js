@@ -9,6 +9,7 @@ import {
   Keyboard,
   Platform,
   StyleSheet,
+  ActivityIndicator,
 } from "react-native";
 import * as Location from "expo-location";
 import * as MediaLibrary from "expo-media-library";
@@ -67,12 +68,6 @@ const CreatePostsScreen = ({ navigation }) => {
 
       setHasMediaLibraryPermission(mediaLibraryPermission.status === "granted");
       setLocationPermission(locationPermission.status === "granted");
-
-      // const location = await Location.getCurrentPositionAsync();
-      // setLocation({
-      //   latitude: location.coords.latitude,
-      //   longitude: location.coords.longitude,
-      // });
     })();
   }, []);
 
@@ -160,19 +155,10 @@ const CreatePostsScreen = ({ navigation }) => {
 
   const postPhoto = async () => {
     if (newPhoto && photoName && photoLocation) {
-      navigation.navigate("Posts");
       await uploadPostToServer();
+      navigation.navigate("Posts");
     }
   };
-
-  // const __startCamera = async () => {
-  //   const { status } = await Camera.requestCameraPermissionsAsync();
-  //   if (status === "granted") {
-  //     setStartCamera(true);
-  //   } else {
-  //     Alert.alert("Access denied");
-  //   }
-  // };
 
   if (hasMediaLibraryPermission === false) {
     return <Text>Немає доступу до галереї</Text>;
@@ -191,87 +177,102 @@ const CreatePostsScreen = ({ navigation }) => {
       <View
         style={{
           ...styles.container,
-          paddingBottom: !isShowKeyboard ? 80 : 32,
         }}
       >
-        {startCamera ? (
-          <>
-            {newPhoto ? (
-              <View style={styles.photoContainer}>
-                <Image source={{ uri: newPhoto }} style={styles.takenPhoto} />
-              </View>
-            ) : (
-              <Camera style={styles.camera} ref={cameraRef}>
-                <TouchableOpacity style={styles.cameraIcon} onPress={makePhoto}>
-                  <SvgCamera />
-                </TouchableOpacity>
-              </Camera>
-            )}
-            {newPhoto ? (
-              <TouchableOpacity onPress={clearPhoto}>
-                <Text style={styles.editor}>Спробувати ще раз</Text>
-              </TouchableOpacity>
-            ) : (
-              <TouchableOpacity onPress={downloadPhoto}>
-                <Text style={styles.editor}>Завантажити фото</Text>
-              </TouchableOpacity>
-            )}
+        {loading && (
+          <View style={styles.activityIndicatorContainer}>
+            <ActivityIndicator size="large" color="#FF6C00" />
+          </View>
+        )}
+        <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : ""}>
+          <View
+            style={{
+              paddingBottom: !isShowKeyboard ? 10 : 32,
+            }}
+          >
+            {startCamera ? (
+              <>
+                {newPhoto ? (
+                  <View style={styles.photoContainer}>
+                    <Image
+                      source={{ uri: newPhoto }}
+                      style={styles.takenPhoto}
+                    />
+                  </View>
+                ) : (
+                  <Camera style={styles.camera} ref={cameraRef}>
+                    <TouchableOpacity
+                      style={styles.cameraIcon}
+                      onPress={makePhoto}
+                    >
+                      <SvgCamera />
+                    </TouchableOpacity>
+                  </Camera>
+                )}
+                {newPhoto ? (
+                  <TouchableOpacity onPress={clearPhoto}>
+                    <Text style={styles.editor}>Спробувати ще раз</Text>
+                  </TouchableOpacity>
+                ) : (
+                  <TouchableOpacity onPress={downloadPhoto}>
+                    <Text style={styles.editor}>Завантажити фото</Text>
+                  </TouchableOpacity>
+                )}
 
-            <KeyboardAvoidingView
-              behavior={Platform.OS === "ios" ? "padding" : ""}
-            >
-              <View
-                style={{
-                  ...styles.form,
-                }}
-              >
-                <TextInput
-                  placeholder="Назва..."
-                  style={styles.input}
-                  onFocus={() => {
-                    setIsShowKeyboard(true);
-                    Keyboard.isVisible();
-                  }}
-                  onChangeText={(value) => {
-                    setPhotoName(value);
-                  }}
-                  value={photoName}
-                />
-
-                <TextInput
-                  placeholder="Локація..."
-                  style={{ ...styles.input, marginTop: 32 }}
-                  onChangeText={(value) => {
-                    setPhotoLocation(value);
-                  }}
-                  value={photoLocation}
-                />
-              </View>
-              <TouchableOpacity
-                activeOpacity={0.7}
-                style={{
-                  ...styles.btn,
-                  backgroundColor: photoName ? "#FF6C00" : "#F6F6F6",
-                }}
-                onPress={() => {
-                  postPhoto();
-                  clearPost();
-                }}
-              >
-                <Text
+                <View
                   style={{
-                    ...styles.btnTitle,
-                    color: photoName ? "#fff" : "#BDBDBD",
+                    ...styles.form,
                   }}
                 >
-                  Опублікувати
-                </Text>
-              </TouchableOpacity>
-            </KeyboardAvoidingView>
-          </>
-        ) : (
-          <Text>Немає доступу до камери</Text>
-        )}
+                  <TextInput
+                    placeholder="Назва..."
+                    style={styles.input}
+                    onFocus={() => {
+                      setIsShowKeyboard(true);
+                      Keyboard.isVisible();
+                    }}
+                    onChangeText={(value) => {
+                      setPhotoName(value);
+                    }}
+                    value={photoName}
+                  />
+
+                  <TextInput
+                    placeholder="Локація..."
+                    style={{ ...styles.input, marginTop: 32 }}
+                    onChangeText={(value) => {
+                      setPhotoLocation(value);
+                    }}
+                    value={photoLocation}
+                  />
+                </View>
+
+                <TouchableOpacity
+                  activeOpacity={0.7}
+                  style={{
+                    ...styles.btn,
+                    backgroundColor: photoName ? "#FF6C00" : "#F6F6F6",
+                  }}
+                  onPress={() => {
+                    postPhoto();
+                    clearPost();
+                  }}
+                >
+                  <Text
+                    style={{
+                      ...styles.btnTitle,
+                      color: photoName ? "#fff" : "#BDBDBD",
+                    }}
+                  >
+                    Опублікувати
+                  </Text>
+                </TouchableOpacity>
+              </>
+            ) : (
+              <Text>Немає доступу до камери</Text>
+            )}
+          </View>
+        </KeyboardAvoidingView>
       </View>
     </TouchableWithoutFeedback>
   );
@@ -281,10 +282,12 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: "#fff",
+    justifyContent: "center",
   },
   camera: {
     marginHorizontal: 16,
     marginTop: 32,
+    borderRadius: 10,
     height: 240,
     justifyContent: "center",
     alignItems: "center",
@@ -344,6 +347,17 @@ const styles = StyleSheet.create({
   btnTitle: {
     fontFamily: "Roboto-Regular",
     fontSize: 16,
+  },
+  activityIndicatorContainer: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(255, 255, 255, 0.7)",
+    zIndex: 9,
   },
 });
 

@@ -1,48 +1,93 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
-  StyleSheet,
-  Text,
   View,
-  Image,
+  Text,
+  StyleSheet,
   ImageBackground,
-  TextInput,
+  Image,
   TouchableOpacity,
-  KeyboardAvoidingView,
-  Keyboard,
-  Platform,
-  TouchableWithoutFeedback,
+  FlatList,
+  ActivityIndicator,
 } from "react-native";
-import { useDispatch } from "react-redux";
+import { useDispatch, useSelector } from "react-redux";
 import * as ImagePicker from "expo-image-picker";
-
 import { ref, uploadBytesResumable, getDownloadURL } from "firebase/storage";
+import {
+  collection,
+  getDocs,
+  query,
+  orderBy,
+  doc,
+  where,
+} from "firebase/firestore";
 
-import { authSignUpUser } from "../redux/auth/authOperations";
+import { authSignOutUser, authEditProfile } from "../redux/auth/authOperations";
 
-import { storage } from "../firebase/config";
+import { db, storage } from "../firebase/config";
 
 import SvgAddAvatar from "../assets/svg/addAvatar";
+import SvgMessage from "../assets/svg/messageIcon";
+import SvgMap from "../assets/svg/mapIcon";
 
-const initialState = {
-  login: "",
-  email: "",
-  password: "",
-  avatar: "",
-};
-
-export default Registrationscreen = ({ navigation }) => {
-  const [state, setState] = useState(initialState);
-  const [isShowKeyboard, setIsShowKeyboard] = useState(false);
-  const [focused, setFocused] = useState("");
-  const [isSecureEntry, setIsSecureEntry] = useState(true);
+const ProfileScreen = ({ navigation }) => {
+  const [posts, setPosts] = useState([]);
   const [selectedImg, setSelectedImg] = useState(null);
+  const [currentAvatar, setCurrentAvatar] = useState(null);
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    getUsersPosts();
+  }, []);
+
+  useEffect(() => {
+    if (!selectedImg) {
+      setSelectedImg(photo);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (currentAvatar !== null && currentAvatar !== photo) {
+      uploadPhotoToServer();
+    }
+  }, [currentAvatar]);
+
+  const { userId, nickname, photo } = useSelector((state) => state.auth);
 
   const dispatch = useDispatch();
 
-  const keyboardHide = () => {
-    setIsShowKeyboard(false);
-    Keyboard.dismiss();
+  const signOut = () => {
+    setPosts([]);
+    dispatch(authSignOutUser());
+  };
+
+  const getUsersPosts = async () => {
+    try {
+      const postsRef = await collection(db, "posts");
+      const q = query(
+        postsRef,
+        where("userId", "==", userId),
+        orderBy("createdAt", "desc")
+      );
+      const snapshot = await getDocs(q);
+      let posts = [];
+
+      for (const post of snapshot.docs) {
+        const postRef = await doc(db, "posts", post.id);
+        const commentsRef = collection(postRef, "comments");
+        const commentsSnapshot = await getDocs(commentsRef);
+        const commentsCount = commentsSnapshot.size;
+
+        posts.push({
+          id: post.id,
+          ...post.data(),
+          commentsCount,
+        });
+      }
+
+      setPosts(posts);
+    } catch (error) {
+      console.log("Error: ", error);
+    }
   };
 
   const downloadPhoto = async () => {
@@ -56,6 +101,7 @@ export default Registrationscreen = ({ navigation }) => {
 
       if (!result.canceled) {
         setSelectedImg(result.assets[0].uri);
+        setCurrentAvatar(result.assets[0].uri);
       }
     } catch (E) {
       console.log(E);
@@ -72,6 +118,7 @@ export default Registrationscreen = ({ navigation }) => {
       const storageRef = ref(storage, `avatar/${uniquePhotoId}`);
       const result = await uploadBytesResumable(storageRef, file);
       const processedPhoto = await getDownloadURL(storageRef);
+      await dispatch(authEditProfile({ photo: processedPhoto }));
       setLoading(false);
       return processedPhoto;
     } catch (error) {
@@ -83,176 +130,116 @@ export default Registrationscreen = ({ navigation }) => {
     setSelectedImg(null);
   };
 
-  const handleSubmit = async () => {
-    setLoading(true);
-    setIsShowKeyboard(false);
-    Keyboard.dismiss();
-    console.log("selected img:", selectedImg);
-
-    if (selectedImg) {
-      const userAvatar = await uploadPhotoToServer();
-      console.log("user avatar:", userAvatar);
-      setState((prevState) => ({
-        ...prevState,
-        avatar: userAvatar,
-      }));
-      console.log(state);
-      dispatch(authSignUpUser(state));
-      setState(initialState);
-      setLoading(false);
-      return;
-    }
-    dispatch(authSignUpUser(state));
-    setState(initialState);
-    setLoading(false);
-  };
-
   return (
-    <TouchableWithoutFeedback onPress={keyboardHide}>
-      <View style={styles.container}>
-        <ImageBackground
-          style={styles.imageBackground}
-          source={require("../assets/background.jpg")}
-        >
-          <KeyboardAvoidingView
-            behavior={Platform.OS === "ios" ? "padding" : ""}
-          >
-            <View
-              style={{
-                ...styles.formContainer,
-                paddingBottom: !isShowKeyboard ? 80 : 32,
-              }}
-            >
-              <View style={styles.avatarContainer}>
-                {selectedImg ? (
-                  <>
-                    <Image
-                      source={{ uri: selectedImg }}
-                      style={styles.avatar}
-                    />
-                    <TouchableOpacity
-                      style={styles.removeAvatar}
-                      onPress={clearPhoto}
-                    >
-                      <SvgAddAvatar />
-                    </TouchableOpacity>
-                  </>
-                ) : (
-                  <TouchableOpacity
-                    style={styles.addAvatar}
-                    onPress={downloadPhoto}
-                  >
-                    <SvgAddAvatar />
-                  </TouchableOpacity>
-                )}
-              </View>
-              <Text style={styles.title}>Реєстрація</Text>
-
-              <View style={{ marginBottom: 16 }}>
-                <TextInput
-                  placeholder="Логін"
-                  value={state.login}
-                  onFocus={() => {
-                    setIsShowKeyboard(true);
-                    Keyboard.isVisible();
-                    setFocused("login");
-                  }}
-                  style={{
-                    ...styles.input,
-                    borderColor: focused === "login" ? "#FF6C00" : "#E8E8E8",
-                  }}
-                  onBlur={() => setFocused("")}
-                  onChangeText={(value) => {
-                    setState((prevState) => ({ ...prevState, login: value }));
-                    Keyboard.isVisible();
-                  }}
-                />
-              </View>
-              <View style={{ marginBottom: 16 }}>
-                <TextInput
-                  keyboardType="email-address"
-                  placeholder="Адреса електронної пошти"
-                  value={state.email}
-                  onFocus={() => {
-                    setIsShowKeyboard(true);
-                    setFocused("email");
-                  }}
-                  style={{
-                    ...styles.input,
-                    borderColor: focused === "email" ? "#FF6C00" : "#E8E8E8",
-                  }}
-                  onBlur={() => setFocused("")}
-                  onChangeText={(value) =>
-                    setState((prevState) => ({ ...prevState, email: value }))
-                  }
-                />
-              </View>
-              <View style={{ position: "relative" }}>
-                <TextInput
-                  placeholder="Пароль"
-                  value={state.password}
-                  onFocus={() => {
-                    setIsShowKeyboard(true);
-                    setFocused("password");
-                  }}
-                  style={{
-                    ...styles.input,
-                    borderColor: focused === "password" ? "#FF6C00" : "#E8E8E8",
-                  }}
-                  onBlur={() => setFocused("false")}
-                  secureTextEntry={isSecureEntry}
-                  onChangeText={(value) =>
-                    setState((prevState) => ({ ...prevState, password: value }))
-                  }
-                />
-                <TouchableOpacity
-                  style={styles.passwordTextWrapper}
-                  onPress={() => {
-                    setIsSecureEntry((prevState) => !prevState);
-                  }}
-                >
-                  <Text style={styles.passwordText}>
-                    {isSecureEntry ? "Показати" : "Приховати"}
-                  </Text>
-                </TouchableOpacity>
-              </View>
-
-              <TouchableOpacity
-                activeOpacity={0.7}
-                style={styles.btn}
-                onPress={() => {
-                  handleSubmit();
-                }}
-              >
-                <Text style={styles.btnTitle}>Зареєструватися</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                activeOpacity={0.7}
-                onPress={() => navigation.navigate("Login")}
-              >
-                <Text style={styles.signinText}>Уже є аккаунт? Увійти</Text>
-              </TouchableOpacity>
+    <View style={styles.container}>
+      <ImageBackground
+        style={styles.imageBackground}
+        source={require("../assets/background.jpg")}
+      >
+        <View style={styles.profileContainer}>
+          {loading && (
+            <View style={styles.activityIndicatorContainer}>
+              <ActivityIndicator size="large" color="#FF6C00" />
             </View>
-          </KeyboardAvoidingView>
-        </ImageBackground>
-      </View>
-    </TouchableWithoutFeedback>
+          )}
+          <TouchableOpacity
+            style={{ position: "absolute", right: 20, top: 20 }}
+            onPress={() => {
+              signOut();
+            }}
+          >
+            <Image
+              source={require("../assets/logOut.jpg")}
+              style={{ width: 24, height: 24 }}
+            />
+          </TouchableOpacity>
+          <View style={styles.avatarContainer}>
+            {selectedImg ? (
+              <>
+                <Image source={{ uri: selectedImg }} style={styles.avatar} />
+                <TouchableOpacity
+                  style={styles.removeAvatar}
+                  onPress={clearPhoto}
+                >
+                  <SvgAddAvatar />
+                </TouchableOpacity>
+              </>
+            ) : (
+              <TouchableOpacity
+                style={styles.addAvatar}
+                onPress={downloadPhoto}
+              >
+                <SvgAddAvatar />
+              </TouchableOpacity>
+            )}
+          </View>
+          <Text style={styles.nickname}>{nickname}</Text>
+
+          {posts.length > 0 ? (
+            <FlatList
+              data={posts}
+              keyExtractor={(item, index) => index.toString()}
+              renderItem={({ item }) => (
+                <View style={styles.postsContainer}>
+                  <Image style={styles.photo} source={{ uri: item.photo }} />
+                  <Text style={styles.photoName}>{item.description}</Text>
+                  <View style={styles.details}>
+                    <TouchableOpacity
+                      style={{ ...styles.detailsBlock, alignItems: "center" }}
+                      onPress={() => {
+                        navigation.navigate("Comments", { postId: item.id });
+                      }}
+                    >
+                      <SvgMessage />
+                      <Text styles={{ marginLeft: 5 }}>
+                        {item.commentsCount}
+                      </Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={styles.detailsBlock}
+                      onPress={() => {
+                        const location = item.place;
+                        const photoName = item.description;
+                        navigation.navigate("Map", { location, photoName });
+                      }}
+                    >
+                      <SvgMap />
+                      <Text style={styles.location}>{item.place}</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              )}
+            />
+          ) : (
+            <View style={styles.textContainer}>
+              <Text style={styles.noPostsText}>Додайте свій перший пост!</Text>
+            </View>
+          )}
+        </View>
+      </ImageBackground>
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#fff",
   },
   imageBackground: {
     flex: 1,
     resizeMode: "cover",
     justifyContent: "flex-end",
   },
+  profileContainer: {
+    flex: 1,
+    marginTop: 120,
+    backgroundColor: "#FFFFFF",
+    borderTopLeftRadius: 25,
+    borderTopRightRadius: 25,
+  },
   avatarContainer: {
     position: "absolute",
-    left: "37%",
+    left: "34%",
     top: -60,
     width: 120,
     height: 120,
@@ -279,57 +266,67 @@ const styles = StyleSheet.create({
     width: "100%",
     resizeMode: "cover",
   },
-  formContainer: {
-    paddingTop: 92,
-    backgroundColor: "#FFFFFF",
-    borderTopLeftRadius: 25,
-    borderTopRightRadius: 25,
-  },
-  title: {
-    fontFamily: "Roboto-Regular",
-    textAlign: "center",
-    fontWeight: 500,
-    fontSize: 30,
-    marginBottom: 33,
-  },
-  input: {
-    marginHorizontal: 16,
-    borderWidth: 1,
-    borderColor: "#E8E8E8",
-    borderRadius: 8,
-    height: 50,
-    color: "#212121",
-    backgroundColor: "#F6F6F6",
-    fontSize: 16,
-    padding: 16,
-  },
-  passwordTextWrapper: {
+  activityIndicatorContainer: {
     position: "absolute",
-    top: "30%",
-    right: 25,
-  },
-  passwordText: {
-    color: "#1B4371",
-    fontSize: 16,
-    lineHeight: 19,
-  },
-  btn: {
-    height: 50,
-    marginHorizontal: 16,
-    marginTop: 43,
-    marginBottom: 16,
-    borderRadius: 100,
-    justifyContent: "center",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
     alignItems: "center",
-    backgroundColor: "#FF6C00",
+    justifyContent: "center",
+    backgroundColor: "rgba(255, 255, 255, 0.7)",
+    zIndex: 9,
   },
-  btnTitle: {
-    color: "#FFFFFF",
-    fontSize: 16,
+  postsContainer: {
+    marginHorizontal: 16,
+    marginBottom: 24,
   },
-  signinText: {
-    color: "#1B4371",
+  photo: {
+    width: "100%",
+    height: 240,
+    borderRadius: 10,
+  },
+  photoName: {
     fontSize: 18,
+    fontWeight: "bold",
+    marginTop: 8,
+  },
+  details: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginTop: 10,
+  },
+  detailsBlock: {
+    flexDirection: "row",
+  },
+  location: {
+    fontSize: 16,
+    marginLeft: 5,
+    textDecorationLine: "underline",
+  },
+  nickname: {
+    fontSize: 30,
+    fontWeight: "bold",
     textAlign: "center",
+    marginTop: 90,
+    marginBottom: 30,
+  },
+  noPostsText: {
+    fontSize: 24,
+    fontWeight: "bold",
+    textAlign: "center",
+    marginTop: 30,
+    marginBottom: 30,
+  },
+  textContainer: {
+    borderColor: "#FF6C00",
+    borderWidth: 1,
+    borderRadius: 10,
+    marginHorizontal: 25,
+    paddingTop: 50,
+    paddingBottom: 50,
+    marginBottom: 30,
   },
 });
+
+export default ProfileScreen;
