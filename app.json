@@ -1,8 +1,8 @@
 {
   "expo": {
-    "name": "Image Posts",
-    "slug": "image-posts",
-    "description": "Еhis application is designed to create your own series of photos with the ability to comment on them and specify geodata.",
+    "name": "rn-hw",
+    "slug": "rn-hw",
+    "description": "app for posts",
     "version": "1.0.0",
     "orientation": "default",
     "icon": "./assets/icon.png",
